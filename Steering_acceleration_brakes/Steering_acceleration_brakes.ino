@@ -51,6 +51,7 @@ int addr = 0;
 int brake_curr=0;
 #define brak_step_dir_pin 5 
 #define brak_step_puls_pin 6
+#define brak_step_max 500
 
 String packet;
 char steering;
