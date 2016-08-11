@@ -180,9 +180,9 @@ void loop() {
   //float output = (target_val-pot_raw)Kp+(output-prev_output)Kd;
   //prev_output=output;
   ////scale interrupt perion /
-  //input_1 = pot_raw;
-  //setpoint_1 = steering;
-  //steeringPID.Compute();
+  input_1 = pot_raw;
+  setpoint_1 = steering;
+  steeringPID.Compute();
 
   output_1 > 0 ? digitalWrite(ster_step_dir_pin, HIGH) : digitalWrite(ster_step_dir_pin, LOW);
 
