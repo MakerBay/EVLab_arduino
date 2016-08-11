@@ -88,14 +88,31 @@ void setup() {
   brake_curr = EEPROM.read(addr);
 }
 
+String msg="";
 void loop() {
   //Get target value from serial
 #ifdef serial_control
   if (Serial.available() > 0) {
-    ch1 = Serial.parseInt();
-    ch2 = Serial.parseInt();
-    ch3 = Serial.parseInt();
-    sum = Serial.parseInt();
+    msg += Serial.read();
+  }
+  if (msg[msg.length()-1]='#'){
+      ch1 = msg.substring(0,msg.indexOf(',')-1).toInt;
+      msg.remove(0,msg.indexOf(','));
+      ch2 = msg.substring(0,msg.indexOf(',')-1).toInt;
+      msg.remove(0,msg.indexOf(','));
+      ch3 = msg.substring(0,msg.indexOf(',')-1).toInt;
+      msg.remove(0,msg.indexOf(','));
+      sum = msg.substring(0,msg.indexOf(',')-1).toInt;
+      msg.remove(0,msg.indexOf('#'));
+      msg="";
+  }
+  
+    //ch1 = Serial.parseInt();
+    //ch2 = Serial.parseInt();
+    //ch3 = Serial.parseInt();
+    //sum = Serial.parseInt();
+   
+    
     if (Serial.read() == '#') {
       if (ch1 + ch2 + ch3 == sum && sum < 3069) {
         steering = map(ch1, 0, 255, 0, 1023);
@@ -110,6 +127,9 @@ void loop() {
         Serial.print("brakes: ");
         Serial.print(brakes);
         Serial.print(", ");
+      }
+      else { 
+        return;
       }
     }
   }
