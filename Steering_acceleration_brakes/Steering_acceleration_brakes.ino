@@ -103,14 +103,14 @@ void loop() {
       steering = map(ch1, 0, 255, 0, 1023);
       throttle = map(ch2, 0, 255, 0, 1023);
       brakes = map(ch3, 0, 255, 0, 1023);
-      Serial.print("ch1: ");
-      Serial.print(ch1);
+      Serial.print("steering: ");
+      Serial.print(steering);
       Serial.print(", ");
-      Serial.print("ch2: ");
-      Serial.print(ch2);
+      Serial.print("throttle: ");
+      Serial.print(throttle);
       Serial.print(",");
-      Serial.print("ch3: ");
-      Serial.print(ch3);
+      Serial.print("brakes: ");
+      Serial.print(brakes);
       Serial.print(", ");
       }
     }
@@ -131,12 +131,12 @@ void loop() {
 #endif
 
   //Direction control
-  if (ch2 > (512 + deadzone_throttle)) {
+  if (throttle > (512 + deadzone_throttle)) {
     digitalWrite(Main_relay, HIGH);
     digitalWrite(Back_relay, LOW);                           // Turns ON Relays front
     digitalWrite(Front_relay, HIGH);                           // Turns OFF Relay back
   }
-  else if (ch2 < (512 - deadzone_throttle)) {
+  else if (throttle < (512 - deadzone_throttle)) {
     digitalWrite(Main_relay, HIGH);
     digitalWrite(Front_relay, LOW);                           // Turns OFF Relays front
     digitalWrite(Back_relay, HIGH);                         // Turns ON Relay back
@@ -148,7 +148,7 @@ void loop() {
   }
 
   //Speed control
-  rval = abs(ch2 - 512);
+  rval = abs(throttle - 512);
   rval = map(rval, 0, 512, 0, 256);                          //5K pot used
   servo1.write(degreesToUS(rval));
 
@@ -165,7 +165,7 @@ void loop() {
     //scale interrupt perion
   */
   input_1 = pot_raw;
-  setpoint_1 = ch1;
+  setpoint_1 = steering;
   steeringPID.Compute();
 
   output_1 > 0 ? digitalWrite(ster_step_dir_pin, HIGH) : digitalWrite(ster_step_dir_pin, LOW);
@@ -182,7 +182,7 @@ void loop() {
 
   //Brake control
   //Mapping need to be done;
-  ch3 - brake_curr > 0 ? digitalWrite(brak_step_dir_pin, HIGH) : digitalWrite(brak_step_dir_pin, LOW);
+  brakes - brake_curr > 0 ? digitalWrite(brak_step_dir_pin, HIGH) : digitalWrite(brak_step_dir_pin, LOW);
   for (int i = 0; i < abs(ch3 - brake_curr); i++) {
     digitalWrite(brak_step_puls_pin, HIGH);
     delayMicroseconds(300);
