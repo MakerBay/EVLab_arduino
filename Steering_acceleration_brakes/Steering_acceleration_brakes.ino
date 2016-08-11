@@ -145,98 +145,97 @@ void loop() {
       return;
     }
   }
-}
 #endif
 
 #ifdef RC_control
-//Get target values from RF controller: ch1 = pulseIn (RC_ch1, HIGH);
-ch2 = pulseIn (RC_ch2, HIGH);
-ch3 = pulseIn (RC_ch3, HIGH);
-constrain(ch1, 1128, 1734);
-constrain(ch2, 1132, 1939);
-constrain(ch3, 1087, 1881);
-ch1 = map(ch1, 1216, 1520, 0, 1023); //ch1 - steering: <512 = right
-ch2 = map(ch2, 1937, 1130, 0, 1023); //ch2 - throttle: <512 = backwards
-ch3 = map(ch3, 1881, 1087, 0, 1023); //ch3 - brakes
+  //Get target values from RF controller: ch1 = pulseIn (RC_ch1, HIGH);
+  ch2 = pulseIn (RC_ch2, HIGH);
+  ch3 = pulseIn (RC_ch3, HIGH);
+  constrain(ch1, 1128, 1734);
+  constrain(ch2, 1132, 1939);
+  constrain(ch3, 1087, 1881);
+  ch1 = map(ch1, 1216, 1520, 0, 1023); //ch1 - steering: <512 = right
+  ch2 = map(ch2, 1937, 1130, 0, 1023); //ch2 - throttle: <512 = backwards
+  ch3 = map(ch3, 1881, 1087, 0, 1023); //ch3 - brakes
 #endif
 
-//Direction control
-if (throttle > (512 + deadzone_throttle)) {
-  digitalWrite(Main_relay, HIGH);
-  digitalWrite(Back_relay, LOW); // Turns ON Relays front
-  digitalWrite(Front_relay, HIGH); // Turns OFF Relay back
-}
-else if (throttle < (512 - deadzone_throttle)) {
-  digitalWrite(Main_relay, HIGH);
-  digitalWrite(Front_relay, LOW); // Turns OFF Relays front
-  digitalWrite(Back_relay, HIGH); // Turns ON Relay back
-}
-else {
-  digitalWrite(Main_relay, LOW);
-  digitalWrite(Front_relay, LOW);
-  digitalWrite(Back_relay, LOW);
-}
+  //Direction control
+  if (throttle > (512 + deadzone_throttle)) {
+    digitalWrite(Main_relay, HIGH);
+    digitalWrite(Back_relay, LOW); // Turns ON Relays front
+    digitalWrite(Front_relay, HIGH); // Turns OFF Relay back
+  }
+  else if (throttle < (512 - deadzone_throttle)) {
+    digitalWrite(Main_relay, HIGH);
+    digitalWrite(Front_relay, LOW); // Turns OFF Relays front
+    digitalWrite(Back_relay, HIGH); // Turns ON Relay back
+  }
+  else {
+    digitalWrite(Main_relay, LOW);
+    digitalWrite(Front_relay, LOW);
+    digitalWrite(Back_relay, LOW);
+  }
 
-//Speed control
-rval = abs(throttle - 512);
-rval = map(rval, 0, 512, 0, 256); //5K pot used
-servo1.write(degreesToUS(rval));
+  //Speed control
+  rval = abs(throttle - 512);
+  rval = map(rval, 0, 512, 0, 256); //5K pot used
+  servo1.write(degreesToUS(rval));
 
-//Steering control
-int pot_raw = analogRead(pot_pin);
-pot_raw = map(pot_raw, 0, 680, 0, 1023);
-//Upper & lower bound
-//pot_raw = (pot_raw > pot_Max)? pot_Max: pot_raw;
-//pot_raw = (pot_raw < pot_Min)? pot_Min: pot_raw;
+  //Steering control
+  int pot_raw = analogRead(pot_pin);
+  pot_raw = map(pot_raw, 0, 680, 0, 1023);
+  //Upper & lower bound
+  //pot_raw = (pot_raw > pot_Max)? pot_Max: pot_raw;
+  //pot_raw = (pot_raw < pot_Min)? pot_Min: pot_raw;
 
-//PID
-//float output = (target_val-pot_raw)Kp+(output-prev_output)Kd;
-//prev_output=output;
-////scale interrupt perion /
-input_1 = pot_raw;
-setpoint_1 = steering;
-steeringPID.Compute();
+  //PID
+  //float output = (target_val-pot_raw)Kp+(output-prev_output)Kd;
+  //prev_output=output;
+  ////scale interrupt perion /
+  input_1 = pot_raw;
+  setpoint_1 = steering;
+  steeringPID.Compute();
 
-output_1 > 0 ? digitalWrite(ster_step_dir_pin, HIGH) : digitalWrite(ster_step_dir_pin, LOW);
+  output_1 > 0 ? digitalWrite(ster_step_dir_pin, HIGH) : digitalWrite(ster_step_dir_pin, LOW);
 
-long period = steering_range - abs(output_1);
-period = (period < 320) ? 320 : period;
-period = abs(period);
-//set period
-Timer1.detachInterrupt();
-if (abs(setpoint_1 - pot_raw) > deadzone_steering) {
-  Timer1.initialize(period);
-  Timer1.attachInterrupt(callback);
-}
+  long period = steering_range - abs(output_1);
+  period = (period < 320) ? 320 : period;
+  period = abs(period);
+  //set period
+  Timer1.detachInterrupt();
+  if (abs(setpoint_1 - pot_raw) > deadzone_steering) {
+    Timer1.initialize(period);
+    Timer1.attachInterrupt(callback);
+  }
 
-//Brake control
-//Mapping need to be done;
-brakes - brake_curr > 0 ? digitalWrite(brak_step_dir_pin, HIGH) : digitalWrite(brak_step_dir_pin, LOW);
-for (int i = 0; i < abs(ch3 - brake_curr); i++) {
-  digitalWrite(brak_step_puls_pin, HIGH);
-  delayMicroseconds(300);
-  digitalWrite(brak_step_puls_pin, LOW);
-  delayMicroseconds(100);
-}
-EEPROM.write(addr, brake_curr);
+  //Brake control
+  //Mapping need to be done;
+  brakes - brake_curr > 0 ? digitalWrite(brak_step_dir_pin, HIGH) : digitalWrite(brak_step_dir_pin, LOW);
+  for (int i = 0; i < abs(ch3 - brake_curr); i++) {
+    digitalWrite(brak_step_puls_pin, HIGH);
+    delayMicroseconds(300);
+    digitalWrite(brak_step_puls_pin, LOW);
+    delayMicroseconds(100);
+  }
+  EEPROM.write(addr, brake_curr);
 
-//Print data for debugging and testing
-Serial.print("Set point: ");
-Serial.print(setpoint_1);
-Serial.print(", ");
-Serial.print("Input: ");
-Serial.print(pot_raw);
-Serial.print(", ");
-Serial.print("Output: ");
-Serial.print(output_1);
-Serial.print(", ");
-Serial.print("Period: ");
-Serial.print(period);
-Serial.print(", ");
-Serial.print("rval: ");
-Serial.print(rval);
-Serial.print(",");
-Serial.println(brake_curr);
+  //Print data for debugging and testing
+  Serial.print("Set point: ");
+  Serial.print(setpoint_1);
+  Serial.print(", ");
+  Serial.print("Input: ");
+  Serial.print(pot_raw);
+  Serial.print(", ");
+  Serial.print("Output: ");
+  Serial.print(output_1);
+  Serial.print(", ");
+  Serial.print("Period: ");
+  Serial.print(period);
+  Serial.print(", ");
+  Serial.print("rval: ");
+  Serial.print(rval);
+  Serial.print(",");
+  Serial.println(brake_curr);
 }
 
 void callback()
