@@ -36,8 +36,8 @@ ServoTimer2 servo1;
 #define Servopin  11
 
 //Communication protocol
-//#define serial_control
-#define RC_control
+#define serial_control
+//#define RC_control
 #define RC_ch1  2
 #define RC_ch2  3
 #define RC_ch3  4
@@ -69,7 +69,7 @@ PID steeringPID(&input_1, &output_1, &setpoint_1, Kp_1, Ki_1, Kd_1, DIRECT);
     
 void setup() {
   // put your setup code here, to run once:
-  Serial.begin(115200);
+  Serial.begin(9600);
   pinMode(pot_pin, INPUT);
   pinMode(ster_step_dir_pin, OUTPUT);
   pinMode(ster_step_puls_pin, OUTPUT);
