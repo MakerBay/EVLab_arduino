@@ -213,6 +213,8 @@ void loop() {
   Serial.print(rval);
   Serial.print(",");
   Serial.println(brake_curr);
+  
+  delay(10);
 }
 
 void callback()
