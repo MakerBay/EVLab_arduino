@@ -53,10 +53,10 @@ int brake_curr = 0;
 #define brak_step_puls_pin 6
 #define brak_step_max 500
 
-String packet;
-char steering;
-char brakes;
-char throttle;
+
+int steering;
+int brakes;
+int throttle;
 
 //PID set-up:
 #include <PID_v1.h>
@@ -95,20 +95,14 @@ void loop() {
   //Get target value from serial
 #ifdef serial_control
   if (Serial.available() > 0) {
-    /*packet = '\n';
-      while (Serial.available() > 0)  {
-      packet += (char(Serial.read()));
-      if (Serial.peek () == '#') {
-        break;
-      }
-      }*/
     ch1 = Serial.parseInt();
     ch2 = Serial.parseInt();
     ch3 = Serial.parseInt();
     if (Serial.read() == '#') {
-      ch1 = map(ch1, 0, 255, 0, 1023);
-      ch2 = map(ch2, 0, 255, 0, 1023);
-      ch3 = map(ch3, 0, 255, 0, 1023);
+      if (ch1 + ch2 + ch3 <= 3069) {
+      steering = map(ch1, 0, 255, 0, 1023);
+      throttle = map(ch2, 0, 255, 0, 1023);
+      brakes = map(ch3, 0, 255, 0, 1023);
       Serial.print("ch1: ");
       Serial.print(ch1);
       Serial.print(", ");
@@ -118,6 +112,7 @@ void loop() {
       Serial.print("ch3: ");
       Serial.print(ch3);
       Serial.print(", ");
+      }
     }
   }
 #endif
@@ -213,8 +208,6 @@ void loop() {
   Serial.print(rval);
   Serial.print(",");
   Serial.println(brake_curr);
-  
-  delay(10);
 }
 
 void callback()
