@@ -66,7 +66,7 @@ PID steeringPID(&input_1, &output_1, &setpoint_1, Kp_1, Ki_1, Kd_1, DIRECT);
 
 void setup() {
   // put your setup code here, to run once:
-  Serial.begin(9600);
+  Serial.begin(115200);
   pinMode(pot_pin, INPUT);
   pinMode(ster_step_dir_pin, OUTPUT);
   pinMode(ster_step_puls_pin, OUTPUT);
@@ -126,7 +126,7 @@ void loop() {
   //sum = Serial.parseInt();
 
 
-  if (Serial.read() == '#') {
+  //if (Serial.read() == '#') {
     if (ch1 + ch2 + ch3 == sum && sum < 3069) {
       steering = map(ch1, 0, 255, 0, 1023);
       throttle = map(ch2, 0, 255, 0, 1023);
@@ -144,7 +144,7 @@ void loop() {
     else {
       return;
     }
-  }
+  
 #endif
 
 #ifdef RC_control
