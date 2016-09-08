@@ -1,31 +1,7 @@
-//Copyright Statement for the I2C Dev lib
-/* ============================================
-  I2Cdev device library code is placed under the MIT license
-  Copyright (c) 2012 Jeff Rowberg
-
-  Permission is hereby granted, free of charge, to any person obtaining a copy
-  of this software and associated documentation files (the "Software"), to deal
-  in the Software without restriction, including without limitation the rights
-  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-  copies of the Software, and to permit persons to whom the Software is
-  furnished to do so, subject to the following conditions:
-
-  The above copyright notice and this permission notice shall be included in
-  all copies or substantial portions of the Software.
-
-  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-  THE SOFTWARE.
-  ===============================================
-*/
+#include <Ultrasonic.h>
 
 // I2Cdev and MPU6050 must be installed as libraries
 #include "I2Cdev.h"
-
 #include "MPU6050_6Axis_MotionApps20.h"
 #include "MPU6050.h" // not necessary if using MotionApps include file
 
@@ -157,16 +133,6 @@ static void printFloat(float val, bool valid, int len, int prec)
 
 DHT dht(DHTPIN, DHTTYPE);
 
-//Ultrasonic calculation variables:
-unsigned long duration_1;                    //in microseconds
-unsigned long duration_2;
-unsigned long duration_3;
-unsigned long duration_4;
-unsigned long duration_5;
-unsigned long duration_6;
-unsigned long duration_7;
-unsigned long duration_8;
-
 //Ultrasonic pin variables:
 int trig_1 = 22;
 int trig_2 = 24;
@@ -184,6 +150,8 @@ int echo_5 = 31;
 int echo_6 = 33;                                           //For US-015
 int echo_7 = 35;
 int echo_8 = 37;
+int UltrasonicTrig[8] = {22, 24, 26, 28, 30, 32, 34, 36};
+int UltrasonicEcho[8] = {23, 25, 27, 29, 31, 33, 35, 37};
 
 //PIR sensor pin:
 int PIRsensor_1 = 6;
@@ -191,6 +159,7 @@ int PIRsensor_2 = 7;
 
 //Ultrasonic sensor range variables (unit:cm):
 //Works up to about 1.5 meters; if no object detected within 1.5 meters, returns 0
+float UltrasonicRange[8];
 float range_1;
 float range_2;
 float range_3;
@@ -214,13 +183,13 @@ long i = 0;
 #include <Ultrasonic.h>
 
 // Setting up the ultrasonic sensors (HC-SR04):
-Ultrasonic ultrasonic_1(trig_1, echo_1);
-Ultrasonic ultrasonic_2(trig_2, echo_2);
-Ultrasonic ultrasonic_3(trig_3, echo_3);
-Ultrasonic ultrasonic_4(trig_4, echo_4);
-Ultrasonic ultrasonic_5(trig_5, echo_5);
-Ultrasonic ultrasonic_7(trig_7, echo_7);
-Ultrasonic ultrasonic_8(trig_8, echo_8);
+Ultrasonic ultrasonic_1(UltrasonicTrig[0], UltrasonicEcho[0]);
+Ultrasonic ultrasonic_2(UltrasonicTrig[1], UltrasonicEcho[1]);
+Ultrasonic ultrasonic_3(UltrasonicTrig[2], UltrasonicEcho[2]);
+Ultrasonic ultrasonic_4(UltrasonicTrig[3], UltrasonicEcho[3]);
+Ultrasonic ultrasonic_5(UltrasonicTrig[4], UltrasonicEcho[4]);
+Ultrasonic ultrasonic_7(UltrasonicTrig[6], UltrasonicEcho[6]);
+Ultrasonic ultrasonic_8(UltrasonicTrig[7], UltrasonicEcho[7]);
 
 void setup() {
 
@@ -240,16 +209,11 @@ void setup() {
   while (!Serial); // wait for Leonardo enumeration, others continue immediately
 
   // initialize device
-  Serial.println(F("Initializing I2C devices..."));
+  //Serial.println(F("Initializing I2C devices..."));
   mpu.initialize();
   pinMode(INTERRUPT_PIN, INPUT);
 
-  // verify connection
-  Serial.println(F("Testing device connections..."));
-  Serial.println(mpu.testConnection() ? F("MPU6050 connection successful") : F("MPU6050 connection failed"));
-
   // load and configure the DMP
-  Serial.println(F("Initializing DMP..."));
   devStatus = mpu.dmpInitialize();
 
   // Gyro and accelerometer offsets subject to further tuning:
@@ -258,53 +222,30 @@ void setup() {
   mpu.setZGyroOffset(-85);
   mpu.setZAccelOffset(1788);
 
-  // make sure it worked (returns 0 if so)
-  if (devStatus == 0) {
-    // turn on the DMP, now that it's ready
-    Serial.println(F("Enabling DMP..."));
+
+  if (devStatus == 0) {                                                             // make sure it worked (returns 0 if so)
     mpu.setDMPEnabled(true);
 
     // enable Arduino interrupt detection
-    Serial.println(F("Enabling interrupt detection (Arduino external interrupt 0)..."));
+    //Serial.println(F("Enabling interrupt detection (Arduino external interrupt 0)..."));
     attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), dmpDataReady, RISING);
     mpuIntStatus = mpu.getIntStatus();
 
-    // set our DMP Ready flag so the main loop() function knows it's okay to use it
-    Serial.println(F("DMP ready! Waiting for first interrupt..."));
     dmpReady = true;
 
-    // get expected DMP packet size for later comparison
     packetSize = mpu.dmpGetFIFOPacketSize();
   } else {
     // ERROR!
-    // 1 = initial memory load failed
-    // 2 = DMP configuration updates failed
-    // (if it's going to break, usually the code will be 1)
-    Serial.print(F("DMP Initialization failed (code "));
-    Serial.print(devStatus);
-    Serial.println(F(")"));
   }
 
   dht.begin();                                //Setting up the DHT
 
   //Initialise pins for ultrasonic sensors:
-  pinMode(trig_1, OUTPUT);
-  pinMode(echo_1, INPUT);
-  pinMode(trig_2, OUTPUT);
-  pinMode(echo_2, INPUT);
-  pinMode(trig_3, OUTPUT);
-  pinMode(echo_3, INPUT);
-  pinMode(trig_4, OUTPUT);
-  pinMode(echo_4, INPUT);
-  pinMode(trig_5, OUTPUT);
-  pinMode(echo_5, INPUT);
-  pinMode(trig_6, OUTPUT);
-  pinMode(echo_6, INPUT);
-  pinMode(trig_7, OUTPUT);
-  pinMode(echo_7, INPUT);
-  pinMode(trig_8, OUTPUT);
-  pinMode(echo_8, INPUT);
+  for (int i = 0; i < 8; i++) {
+    pinMode(UltrasonicTrig[i], OUTPUT);
+    pinMode(UltrasonicEcho[i], INPUT);
 
+  }
 }
 
 void loop() {
@@ -328,7 +269,7 @@ void loop() {
   if ((mpuIntStatus & 0x10) || fifoCount == 1024) {
     // reset so we can continue cleanly
     mpu.resetFIFO();
-    Serial.println(F("FIFO overflow!"));
+    //Serial.println(F("FIFO overflow!"));
 
     // otherwise, check for DMP data ready interrupt (this should happen frequently)
   } else if (mpuIntStatus & 0x02) {
@@ -346,83 +287,21 @@ void loop() {
     PIR_1 = digitalRead(PIRsensor_1);
     PIR_2 = digitalRead(PIRsensor_2);
 
-    // Send a 10us pulse to sensors
-    if (i % 8 == 0) {
-      digitalWrite(trig_1, HIGH);
-      delayMicroseconds(10);
-      digitalWrite(trig_1, LOW);
-    }
-    if (i % 8 == 1) {
-      digitalWrite(trig_2, HIGH);
-      delayMicroseconds(10);
-      digitalWrite(trig_2, LOW);
-    }
-    if (i % 8 == 2) {
-      digitalWrite(trig_3, HIGH);
-      delayMicroseconds(10);
-      digitalWrite(trig_3, LOW);
-    }
-    if (i % 8 == 3) {
-      digitalWrite(trig_4, HIGH);
-      delayMicroseconds(10);
-      digitalWrite(trig_4, LOW);
-    }
-    if (i % 8 == 4) {
-      digitalWrite(trig_5, HIGH);
-      delayMicroseconds(10);
-      digitalWrite(trig_5, LOW);
-    }
-    if (i % 8 == 5) {
-      digitalWrite(trig_6, HIGH);
-      delayMicroseconds(10);
-      digitalWrite(trig_6, LOW);
-    }
-    if (i % 8 == 6) {
-      digitalWrite(trig_7, HIGH);
-      delayMicroseconds(10);
-      digitalWrite(trig_7, LOW);
-    }
-    if (i % 8 == 7) {
-      digitalWrite(trig_8, HIGH);
-      delayMicroseconds(10);
-      digitalWrite(trig_8, LOW);
-    }
+    // Send a 10us pulse to Ultrasonic sensor
+    digitalWrite(UltrasonicTrig[i % 8], HIGH);
+    delayMicroseconds(10);
+    digitalWrite(UltrasonicTrig[i % 8], LOW);
 
     // Read the duration from 1 of the ulrasonic sensors, and calculate the distance in cm
     // Then put the result into range variable
     // On the next pass, data from another sensor will be read, so we don't slow down the loop too much that the FIFO of mpu6050 overflows
 
-    if (i % 8 == 0) {
-      duration_1 = pulseIn(echo_1, HIGH, 81600);                                            // Timeout set at 8816 us, appropriate for a 3 meter round trip;
-      range_1 = ultrasonic_1.convert(duration_4, Ultrasonic::CM);                                                      // Work out the range in cm
+    unsigned long UltrasonicDuration = pulseIn(UltrasonicEcho[i % 8], HIGH, 81600);
+    if (i % 8 != 5) {
+      UltrasonicRange[i % 8] = ultrasonic_1.convert(UltrasonicDuration, Ultrasonic::CM);
     }
-    if (i % 8 == 1) {
-      duration_2 = pulseIn(echo_2, HIGH, 81600);                                            // Timeout set at 8816 us, appropriate for a 3 meter round trip;
-      range_2 = ultrasonic_2.convert(duration_4, Ultrasonic::CM);                                                      // Work out the range in cm
-    }
-    if (i % 8 == 2) {
-      duration_3 = pulseIn(echo_3, HIGH, 81600);                                            // Timeout set at 8816 us, appropriate for a 3 meter round trip;
-      range_3 = ultrasonic_3.convert(duration_4, Ultrasonic::CM);                                                      // Work out the range in cm
-    }
-    if (i % 8 == 3) {
-      duration_4 = pulseIn(echo_4, HIGH, 81600);                                            // Timeout set at 8816 us, appropriate for a 3 meter round trip;
-      range_4 = ultrasonic_4.convert(duration_4, Ultrasonic::CM);                             // Work out the range in cm
-    }
-    if (i % 8 == 4) {
-      duration_5 = pulseIn(echo_5, HIGH, 81600);                                            // Timeout set at 8816 us, appropriate for a 3 meter round trip;
-      range_4 = ultrasonic_5.convert(duration_4, Ultrasonic::CM);                                                       // Work out the range in cm
-    }
-    if (i % 8 == 5) {
-      duration_6 = pulseIn(echo_6, HIGH, 81600);                                            // Timeout set at 8816 us, appropriate for a 3 meter round trip;
-      range_6 = (duration_6 * 50) / 3026;                                                   // Work out the range in cm (Specially for US-15 sensors)
-    }
-    if (i % 8 == 6) {
-      duration_7 = pulseIn(echo_7, HIGH, 81600);                                            // Timeout set at 8816 us, appropriate for a 3 meter round trip;
-      range_4 = ultrasonic_7.convert(duration_4, Ultrasonic::CM);                                                      // Work out the range in cm
-    }
-    if (i % 8 == 7) {
-      duration_8 = pulseIn(echo_8, HIGH, 81600);                                            // Timeout set at 8816 us, appropriate for a 3 meter round trip;
-      range_4 = ultrasonic_8.convert(duration_4, Ultrasonic::CM);                                                      // Work out the range in cm
+    else {
+      UltrasonicRange[5] = (UltrasonicDuration * 50) / 3026;
     }
 
     // Reading from DHT sensor: (Updates every two seconds)
@@ -450,12 +329,12 @@ void loop() {
     // display Euler angles in degrees
     mpu.dmpGetQuaternion(&q, fifoBuffer);
     mpu.dmpGetEuler(euler, &q);
-    Serial.print("euler\t");
-    Serial.print(euler[0] * 180 / M_PI);
-    Serial.print("\t");
-    Serial.print(euler[1] * 180 / M_PI);
-    Serial.print("\t");
-    Serial.println(euler[2] * 180 / M_PI);
+    // Serial.print("euler\t");
+    // Serial.print(euler[0] * 180 / M_PI);
+    // Serial.print("\t");
+    // Serial.print(euler[1] * 180 / M_PI);
+    // Serial.print("\t");
+    // Serial.println(euler[2] * 180 / M_PI);
 #endif
 
 #ifdef OUTPUT_READABLE_YAWPITCHROLL
@@ -463,12 +342,16 @@ void loop() {
     mpu.dmpGetQuaternion(&q, fifoBuffer);
     mpu.dmpGetGravity(&gravity, &q);
     mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
-    Serial.print(", Yaw: ");
-    Serial.print(ypr[0] * 180 / M_PI);
-    Serial.print(", Pitch: ");
-    Serial.print(ypr[1] * 180 / M_PI);
-    Serial.print(", Roll: ");
-    Serial.print(ypr[2] * 180 / M_PI);
+    //Serial.print(", Yaw: ");
+    int IMUtemp;
+    IMUtemp = ypr[0] * 180 / M_PI;
+    Serial.write(IMUtemp);
+    //Serial.print(", Pitch: ");
+    IMUtemp = ypr[1] * 180 / M_PI;
+    Serial.print(IMUtemp);
+    //Serial.print(", Roll: ");
+    IMUtemp = ypr[2] * 180 / M_PI;
+    Serial.print(IMUtemp);
 #endif
 
 #ifdef OUTPUT_READABLE_REALACCEL
@@ -477,68 +360,35 @@ void loop() {
     mpu.dmpGetAccel(&aa, fifoBuffer);
     mpu.dmpGetGravity(&gravity, &q);
     mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
-    Serial.print(", Acceleration_x: ");
+    //Serial.print(", Acceleration_x: ");
     Serial.print(aaReal.x);
-    Serial.print(", Acceleration_y: ");
+    //Serial.print(", Acceleration_y: ");
     Serial.print(aaReal.y);
-    Serial.print(", Acceleration_z: ");
+    //Serial.print(", Acceleration_z: ");
     Serial.print(aaReal.z);
 #endif
 
-#ifdef OUTPUT_READABLE_WORLDACCEL                                            //left in just in case
-    // display initial world-frame acceleration, adjusted to remove gravity
-    // and rotated based on known orientation from quaternion
-    mpu.dmpGetQuaternion(&q, fifoBuffer);
-    mpu.dmpGetAccel(&aa, fifoBuffer);
-    mpu.dmpGetGravity(&gravity, &q);
-    mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
-    mpu.dmpGetLinearAccelInWorld(&aaWorld, &aaReal, &q);
-    Serial.print("aworld\t");
-    Serial.print(aaWorld.x);
-    Serial.print("\t");
-    Serial.print(aaWorld.y);
-    Serial.print("\t");
-    Serial.print(aaWorld.z);
-#endif
 
-    Serial.print(", Ultrasonic_1: ");                      //Print everything to serial
-    Serial.print(range_1);
-    Serial.print(", Ultrasonic_2: ");
-    Serial.print(range_2);
-    Serial.print(", Ultrasonic_3: ");
-    Serial.print(range_3);
-    Serial.print(", Ultrasonic_4: ");
-    Serial.print(range_4);
-    Serial.print(", Ultrasonic_5: ");
-    Serial.print(range_5);
-    Serial.print(", Ultrasonic_6: ");
-    Serial.print(range_6);
-    Serial.print(", Ultrasonic_7: ");
-    Serial.print(range_7);
-    Serial.print(", Ultrasonic_8: ");
-    Serial.print(range_8);
-    Serial.print(", PIR_1: ");
-    Serial.print(PIR_1);
-    Serial.print(", PIR_2: ");
-    Serial.print(PIR_2);
+    Serial.print((int) range_1);
+    Serial.print((int) range_2);
+    Serial.print((int) range_3);
+    Serial.print((int) range_4);
+    Serial.print((int) range_5);
+    Serial.print((int) range_6);
+    Serial.print((int) range_7);
+    Serial.print((int) range_8);
 
-    Serial.print("Latitude(in deg)");
-    printFloat(gps.location.lat(), gps.location.isValid(), 11, 6);
-    Serial.print(", Longitude(in deg): ");
-    printFloat(gps.location.lng(), gps.location.isValid(), 12, 6);
-    Serial.print(", Land Speed(in km/h): ");
-    printFloat(gps.speed.kmph(), gps.speed.isValid(), 6, 2);
-    Serial.print(", Heading:");
-    printFloat(gps.course.deg(), gps.course.isValid(), 7, 2);
+    //Output PIR value
+    Serial.write((int) PIR_1);
+    Serial.write((int) PIR_2);
 
-    Serial.print(", Humidity: ");
-    Serial.print(humidity);
-    Serial.print(", Temperature:");
-    Serial.print(temperature);
-    Serial.print(", ");
-
-    Serial.println(i);
-
+    //Output environment value
+    Serial.print((int) humidity);
+    Serial.print((int) temperature);
+    //Serial.println();
+    //Serial.println(i);
     i += 1;
   }
 }
+
+
