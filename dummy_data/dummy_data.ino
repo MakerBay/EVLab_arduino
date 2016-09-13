@@ -42,7 +42,7 @@ void loop() {
   for(int i=6;i<13;i++){
     Serial.write(byte(data[i]));
   }
-  //Packet 2 information
+//  Packet 2 information
   Serial.write(byte(int(2)));
   for(int i=13;i<19;i++){
     Serial.write(byte(data[i]));
@@ -50,7 +50,7 @@ void loop() {
   for(int i=0;i<13;i++){
     Serial.write(byte(int(0)));
   }
-  delay(1000);
+  delay(10000);
 }
 
 
