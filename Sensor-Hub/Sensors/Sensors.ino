@@ -85,48 +85,6 @@ void dmpDataReady() {
   mpuInterrupt = true;
 }
 
-#include <TinyGPS++.h>
-#include <SoftwareSerial.h>
-
-static const int RXPin = 12, TXPin = 13;                 //Software serial pins for GPS
-static const uint32_t GPSBaud = 9600;
-
-TinyGPSPlus gps;
-
-SoftwareSerial ss(RXPin, TXPin);
-
-// A custom version of delay():
-// Used in timing GPS
-static void smartDelay(unsigned long ms)
-{
-  unsigned long start = millis();
-  do
-  {
-    while (ss.available())
-      gps.encode(ss.read());
-  } while (millis() - start < ms);
-}
-
-static void printFloat(float val, bool valid, int len, int prec)
-{
-  if (!valid)
-  {
-    while (len-- > 1)
-      Serial.print('*');
-    Serial.print(' ');
-  }
-  else
-  {
-    Serial.print(val, prec);
-    int vi = abs((int)val);
-    int flen = prec + (val < 0.0 ? 2 : 1); // . and -
-    flen += vi >= 1000 ? 4 : vi >= 100 ? 3 : vi >= 10 ? 2 : 1;
-    for (int i = flen; i < len; ++i)
-      Serial.print(' ');
-  }
-  smartDelay(0);
-}
-
 #include "DHT.h"
 #define DHTPIN 11                //DHT Sensor pin
 #define DHTTYPE DHT11
@@ -136,13 +94,13 @@ DHT dht(DHTPIN, DHTTYPE);
 int UltrasonicTrig[8] = {22, 24, 26, 28, 30, 32, 34, 36};
 int UltrasonicEcho[8] = {23, 25, 27, 29, 31, 33, 35, 37};
 
-//PIR sensor pin:
-int PIRsensor_1 = 6;
-int PIRsensor_2 = 7;
-
 //Ultrasonic sensor range variables (unit:cm):
 //Works up to about 1.5 meters; if no object detected within 1.5 meters, returns 0
 float UltrasonicRange[8];
+
+//PIR sensor pin:
+int PIRsensor_1 = 6;
+int PIRsensor_2 = 7;
 
 //PIR sensor variable:
 bool PIR_1;
@@ -166,10 +124,7 @@ Ultrasonic ultrasonic_5(UltrasonicTrig[4], UltrasonicEcho[4]);
 Ultrasonic ultrasonic_7(UltrasonicTrig[6], UltrasonicEcho[6]);
 Ultrasonic ultrasonic_8(UltrasonicTrig[7], UltrasonicEcho[7]);
 
-void setup() {
-
-  ss.begin(GPSBaud);                                                      //Setting up the GPS
-
+void setup() {                                                    
   // Setting up MPU6050
   // join I2C bus (I2Cdev library doesn't do this automatically)
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
@@ -279,13 +234,12 @@ void loop() {
       UltrasonicRange[5] = (UltrasonicDuration * 50) / 3026;
     }
 
-    // Reading from DHT sensor: (Updates every two seconds)
-    // Reading temperature or humidity takes about 250 milliseconds
     if (i % 255 == 0 ) {
       humidity = dht.readHumidity();
-      // Read temperature as Celsius
       temperature = dht.readTemperature();
     }
+
+    Serial.write(byte(1)); //inducator for first package
 
 #ifdef OUTPUT_READABLE_YAWPITCHROLL
     // display Euler angles in degrees
@@ -295,13 +249,16 @@ void loop() {
     //Serial.print(", Yaw: ");
     int IMUtemp;
     IMUtemp = ypr[0] * 180 / M_PI;
+    Serial.write(IMUtemp >> 8);
     Serial.write(IMUtemp);
     //Serial.print(", Pitch: ");
     IMUtemp = ypr[1] * 180 / M_PI;
-    Serial.print(IMUtemp);
+    Serial.write(IMUtemp >> 8);
+    Serial.write(IMUtemp);
     //Serial.print(", Roll: ");
     IMUtemp = ypr[2] * 180 / M_PI;
-    Serial.print(IMUtemp);
+    Serial.write(IMUtemp >> 8);
+    Serial.write(IMUtemp);
 #endif
 
 #ifdef OUTPUT_READABLE_REALACCEL
@@ -311,24 +268,29 @@ void loop() {
     mpu.dmpGetGravity(&gravity, &q);
     mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
     //Serial.print(", Acceleration_x: ");
-    Serial.print(aaReal.x);
+    Serial.write(int(aaReal.x) >> 8);
+    Serial.write(int(aaReal.x));
     //Serial.print(", Acceleration_y: ");
-    Serial.print(aaReal.y);
+    Serial.write(int(aaReal.y) >> 8);
+    Serial.write(int(aaReal.y));
     //Serial.print(", Acceleration_z: ");
-    Serial.print(aaReal.z);
+    Serial.write(int(aaReal.z) >> 8);
+    Serial.write(int(aaReal.z));
 #endif
 
-    for(int i=0;i<8;i++){
-      Serial.print((int) UltrasonicRange);
+    for (int i = 0; i < 7; i++) {
+      Serial.write(byte(UltrasonicRange[i]));
     }
-
+    //Packet 2 indicator
+    Serial.write(byte(2));
+    Serial.write(byte(UltrasonicRange[7]));
     //Output PIR value
-    Serial.write((int) PIR_1);
-    Serial.write((int) PIR_2);
+    Serial.write(byte(PIR_1));
+    Serial.write(byte(PIR_2));
 
     //Output environment value
-    Serial.print((int) humidity);
-    Serial.print((int) temperature);
+    Serial.write(byte(humidity));
+    Serial.write(byte(temperature));
     i += 1;
   }
 }
