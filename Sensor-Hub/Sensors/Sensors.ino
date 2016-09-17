@@ -135,11 +135,11 @@ void setup() {
 #endif
 
   // initialize serial communication (Baud rate subject to change)
+  //Serial.begin(115200);
   Serial.begin(115200);
-  while (!Serial); // wait for Leonardo enumeration, others continue immediately
 
   // initialize device
-  //Serial.println(F("Initializing I2C devices..."));
+  //Serialln(F("Initializing I2C devices..."));
   mpu.initialize();
   pinMode(INTERRUPT_PIN, INPUT);
 
@@ -157,7 +157,7 @@ void setup() {
     mpu.setDMPEnabled(true);
 
     // enable Arduino interrupt detection
-    //Serial.println(F("Enabling interrupt detection (Arduino external interrupt 0)..."));
+    ////Serialln(F("Enabling interrupt detection (Arduino external interrupt 0)..."));
     attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), dmpDataReady, RISING);
     mpuIntStatus = mpu.getIntStatus();
 
@@ -167,10 +167,9 @@ void setup() {
   } else {
     // ERROR!
   }
-
-  dht.begin();                                //Setting up the DHT
-
-  //Initialise pins for ultrasonic sensors:
+  //DHT sensor setup
+  dht.begin(); 
+  //ULtrasonic sensor setup
   for (int i = 0; i < 8; i++) {
     pinMode(UltrasonicTrig[i], OUTPUT);
     pinMode(UltrasonicEcho[i], INPUT);
@@ -199,7 +198,7 @@ void loop() {
   if ((mpuIntStatus & 0x10) || fifoCount == 1024) {
     // reset so we can continue cleanly
     mpu.resetFIFO();
-    //Serial.println(F("FIFO overflow!"));
+    ////Serialln(F("FIFO overflow!"));
 
     // otherwise, check for DMP data ready interrupt (this should happen frequently)
   } else if (mpuIntStatus & 0x02) {
@@ -234,29 +233,34 @@ void loop() {
       UltrasonicRange[5] = (UltrasonicDuration * 50) / 3026;
     }
 
-    if (i % 255 == 0 ) {
+    if (i == 127 ) {
       humidity = dht.readHumidity();
       temperature = dht.readTemperature();
     }
 
-    Serial.write(byte(1)); //inducator for first package
-
+    //Indicate the first package
+    //Serialln("Packet 1");
+    Serial.write(byte(1));
+    
 #ifdef OUTPUT_READABLE_YAWPITCHROLL
     // display Euler angles in degrees
     mpu.dmpGetQuaternion(&q, fifoBuffer);
     mpu.dmpGetGravity(&gravity, &q);
     mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
-    //Serial.print(", Yaw: ");
     int IMUtemp;
     IMUtemp = ypr[0] * 180 / M_PI;
+    //Serial(", Yaw: ");
+    //Serialln(IMUtemp);
     Serial.write(IMUtemp >> 8);
     Serial.write(IMUtemp);
-    //Serial.print(", Pitch: ");
     IMUtemp = ypr[1] * 180 / M_PI;
+    //Serial(", Pitch: ");
+    //Serialln(IMUtemp);
     Serial.write(IMUtemp >> 8);
     Serial.write(IMUtemp);
-    //Serial.print(", Roll: ");
     IMUtemp = ypr[2] * 180 / M_PI;
+    //Serial(", Roll: ");
+    //Serialln(IMUtemp);
     Serial.write(IMUtemp >> 8);
     Serial.write(IMUtemp);
 #endif
@@ -267,31 +271,53 @@ void loop() {
     mpu.dmpGetAccel(&aa, fifoBuffer);
     mpu.dmpGetGravity(&gravity, &q);
     mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
-    //Serial.print(", Acceleration_x: ");
+    //Serial("Acceleration_x: ");
+    //Serialln(int(aaReal.x));
     Serial.write(int(aaReal.x) >> 8);
     Serial.write(int(aaReal.x));
-    //Serial.print(", Acceleration_y: ");
+    //Serial("Acceleration_y: ");
+    //Serialln(int(aaReal.y));
     Serial.write(int(aaReal.y) >> 8);
     Serial.write(int(aaReal.y));
-    //Serial.print(", Acceleration_z: ");
+    //Serial("Acceleration_z: ");
+    //Serialln(int(aaReal.z));
     Serial.write(int(aaReal.z) >> 8);
     Serial.write(int(aaReal.z));
 #endif
 
     for (int i = 0; i < 7; i++) {
+      //Serial("Ultrasonic");
+      //Serial(i);
+      //Serial(" : ");
+      //Serialln(byte(UltrasonicRange[i]));
       Serial.write(byte(UltrasonicRange[i]));
     }
     //Packet 2 indicator
+    //Serialln("Second package");
     Serial.write(byte(2));
+    //Serial("Ultrasonic 7 : ");
+    //Serialln(byte(UltrasonicRange[7]));
     Serial.write(byte(UltrasonicRange[7]));
     //Output PIR value
+    //Serial("PIR sensor data: ");
+    //Serial(byte(PIR_1));
+    //Serialln(byte(PIR_2));
+    
     Serial.write(byte(PIR_1));
     Serial.write(byte(PIR_2));
 
     //Output environment value
+    //Serial("Humidity and temperature: ");
+    //Serial( byte(humidity));
+    //Serialln(byte(temperature));
+    
     Serial.write(byte(humidity));
     Serial.write(byte(temperature));
-    i += 1;
+    for(int i=0;i<14;i++){
+    Serial.write(byte(0));
+    }
+    i += 1 ;
+    i %= 128;
   }
 }
 

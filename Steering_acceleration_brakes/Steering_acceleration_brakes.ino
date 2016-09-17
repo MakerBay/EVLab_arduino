@@ -45,7 +45,6 @@ ServoTimer2 servo1;
 int ch1 = 512; //start with the mid-point values
 int ch2 = 512;
 int ch3 = 0;
-int sum = 0;
 
 //Brake control
 #include <EEPROM.h>
@@ -58,6 +57,9 @@ int brake_curr = 0;
 int steering;
 int brakes;
 int throttle;
+byte fanSpeed;
+byte indicator;
+int LEDDisplay;
 
 //PID set-up:
 double setpoint_1, input_1, output_1;
@@ -89,48 +91,39 @@ void setup() {
 }
 
 String msg = "";
+bool sendMsg = false;
+
 void loop() {
-  //Get target value from serial
 #ifdef serial_control
   while (Serial.available() > 0) {
     msg += (char) Serial.read();
+    sendMsg = true;
   }
-  Serial.println(msg);
-  if (msg.indexOf('#') >= 0) {
-    msg.remove(msg.indexOf('#') + 2);
-    if (msg[msg.length() - 1] = '#') {
-      String temp;
-      temp = msg.substring(0, msg.indexOf(','));
-      Serial.println(temp);
-      msg.remove(0, msg.indexOf(',') + 1);
-      ch1 = temp.indexOf('#') < 0 ? temp.toInt() : -1;
-      temp = msg.substring(0, msg.indexOf(','));
-      Serial.println(temp);
-      msg.remove(0, msg.indexOf(',') + 1);
-      ch2 = temp.indexOf('#') < 0 ? temp.toInt() : -1;
-      temp = msg.substring(0, msg.indexOf(','));
-      Serial.println(temp);
-      msg.remove(0, msg.indexOf(',') + 1);
-      ch3 = temp.indexOf('#') < 0 ? temp.toInt() : -1;
-      temp = msg.substring(0, msg.indexOf('#'));
-      Serial.println(temp);
-      msg.remove(0, msg.indexOf('#') + 1);
-      sum = temp.indexOf('#') < 0 ? temp.toInt() : -1;
-      msg = "";
+  //if (msg!="" && sendMsg==true){
+  //Serial.println(msg);
+  //sendMsg=false;
+  //}
+  //validation of data
+  if (msg.length() == 20) {
+    Serial.println(msg);
+    String serialTemp;
+    int serialTempInt[4];
+    for(int i=0;i<4;i++){
+      serialTemp = msg.substring(i*2,i*2+2);
+      serialTempInt[i] = CharToInt(serialTemp[0]) *16 + CharToInt(serialTemp[1]);
     }
-  }
-
-  //ch1 = Serial.parseInt();
-  //ch2 = Serial.parseInt();
-  //ch3 = Serial.parseInt();
-  //sum = Serial.parseInt();
-
-
-  //if (Serial.read() == '#') {
-    if (ch1 + ch2 + ch3 == sum && sum < 3069) {
-      steering = map(ch1, 0, 255, 0, 1023);
-      throttle = map(ch2, 0, 255, 0, 1023);
-      brakes = map(ch3, 0, 255, 0, 1023);
+    Serial.println((serialTempInt[0]+serialTempInt[1]+serialTempInt[2]) % 256);
+    Serial.println(serialTempInt[3]);
+    if (((serialTempInt[0]+serialTempInt[1]+serialTempInt[2]) % 256) == serialTempInt[3] && msg[18] == '2' && msg[19] == '3') {
+      steering = map(serialTempInt[0], 0, 255, 0, 1023);
+      throttle = map(serialTempInt[1], 0, 255, 0, 1023);
+      brakes = map(serialTempInt[2], 0, 255, 0, 1023);
+      serialTemp=msg.substring(8,10);
+      fanSpeed = CharToInt(serialTemp[0]) *16 + CharToInt(serialTemp[1]);
+      serialTemp=msg.substring(10,12);
+      indicator = CharToInt(serialTemp[0]) *16 + CharToInt(serialTemp[1]);
+      serialTemp=msg.substring(12,16);
+      LEDDisplay = CharToInt(serialTemp[0]) *16*16*16 + CharToInt(serialTemp[1])*16*16 + CharToInt(serialTemp[2])*16 + CharToInt(serialTemp[3]);
       Serial.print("steering: ");
       Serial.print(steering);
       Serial.print(", ");
@@ -140,11 +133,26 @@ void loop() {
       Serial.print("brakes: ");
       Serial.print(brakes);
       Serial.print(", ");
+      Serial.print("fanSpeed: ");
+      Serial.print(fanSpeed);
+      Serial.print(", ");
+      Serial.print("indicator: ");
+      Serial.print(indicator);
+      Serial.print(", ");
+      Serial.print("LEDDisplay: ");
+      Serial.print(LEDDisplay);
+      Serial.print(", ");
     }
     else {
-      return;
+      msg = "";
+      Serial.read();
+      Serial.print("Invalid msg");
     }
-  
+  }
+  else {
+    return;
+  }
+
 #endif
 
 #ifdef RC_control
@@ -184,14 +192,8 @@ void loop() {
   //Steering control
   int pot_raw = analogRead(pot_pin);
   pot_raw = map(pot_raw, 0, 680, 0, 1023);
-  //Upper & lower bound
-  //pot_raw = (pot_raw > pot_Max)? pot_Max: pot_raw;
-  //pot_raw = (pot_raw < pot_Min)? pot_Min: pot_raw;
 
   //PID
-  //float output = (target_val-pot_raw)Kp+(output-prev_output)Kd;
-  //prev_output=output;
-  ////scale interrupt perion /
   input_1 = pot_raw;
   setpoint_1 = steering;
   steeringPID.Compute();
@@ -242,3 +244,13 @@ void callback()
 {
   digitalWrite(ster_step_puls_pin, digitalRead(ster_step_puls_pin) ^ 1);
 }
+
+int CharToInt(char temp){
+  if (temp<='9'){
+    return temp-'0';
+  }
+  else{
+    return (temp-0x41) +10;
+  }
+}
+

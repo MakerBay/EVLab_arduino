@@ -50,7 +50,7 @@ void loop() {
   for(int i=0;i<13;i++){
     Serial.write(byte(int(0)));
   }
-  delay(10000);
+  delay(1000);
 }
 
 
