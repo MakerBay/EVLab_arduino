@@ -8,11 +8,14 @@
   Pin 7 : Direction relay (front)
   Pin 8 : Steering Stepper Direction
   Pin 9 : Steering Stepper Pulse
+  Pin 10 : Speed control
   Pin 11 : Pot Servo
   Pin 12 : Direction relay (Back)
   Pin 13 : Main relay
   Pin A0 : Steering feedback (linear pot)
 */
+
+#define safetyPin 10
 
 //Steering control
 #include "TimerOne.h"
@@ -76,6 +79,8 @@ void setup() {
   pinMode(Front_relay, OUTPUT); // send output to front relay
   pinMode(Back_relay, OUTPUT); // send output to back relay
 
+  pinMode(safetyPin, INPUT_PULLUP);
+
   servo1.attach(Servopin);
 
   steeringPID.SetOutputLimits(-steering_range, steering_range);
@@ -112,6 +117,10 @@ start:
     if (((serialTempInt[0] + serialTempInt[1] + serialTempInt[2]) % 256) == serialTempInt[3] && msg[18] == '2' && msg[19] == '3') {
       steering = map(serialTempInt[0], 0, 255, 1023, 0);
       throttle = map(serialTempInt[1], 0, 255, 0, 1023);
+      if (digitalRead(safetyPin) == 1){
+        throttle = (throttle > 640) ? 640 : throttle ;
+        throttle = (throttle < 384) ? 384 : throttle ;
+      }
       brakes = map(serialTempInt[2], 0, 255, 0, 1023);
       serialTemp = msg.substring(8, 10);
       fanSpeed = CharToInt(serialTemp[0]) * 16 + CharToInt(serialTemp[1]);
