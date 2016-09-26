@@ -58,9 +58,6 @@ int brake_curr = 0;
 int steering;
 int brakes;
 int throttle;
-byte fanSpeed;
-byte indicator;
-int LEDDisplay;
 
 //PID set-up:
 double setpoint_1, input_1, output_1;
@@ -96,145 +93,144 @@ start:
   while (Serial.available() > 0) {
     msg += (char) Serial.read();
     Serial.println(msg);
-    if (msg.length() >= 20) {
+    if (msg[msg.length() - 1] == '#') {
       break;
     }
   }
-  if (msg.length() == 20) {
-    Serial.println(msg);
-    if (msg.indexOf('#') >= 0) {
-      ch1 = byte(msg[0]);
-      ch2 = byte(msg[1]);
-      ch3 = byte(msg[2]);
-      sum = byte(msg[3]); 
-      if (ch1 + ch2 + ch3 == sum && sum < 3069) {
-        steering = map(ch1, 0, 255, 0, 1023);
-        throttle = map(ch2, 0, 255, 0, 1023);
-        brakes = map(ch3, 0, 255, 0, 1023);
-        fanSpeed = byte(msg[4]);
-        indicator = byte(msg[5]);
-        LEDDisplay = (msg[6]<<8 | msg[7]);
-        Serial.print("steering: ");
-        Serial.print(steering);
-        Serial.print(", ");
-        Serial.print("throttle: ");
-        Serial.print(throttle);
-        Serial.print(",");
-        Serial.print("brakes: ");
-        Serial.print(brakes);
-        Serial.print(", ");
-        Serial.print("fanSpeed: ");
-        Serial.print(fanSpeed);
-        Serial.print(", ");
-        Serial.print("indicator: ");
-        Serial.print(indicator);
-        Serial.print(", ");
-        Serial.print("LEDDisplay: ");
-        Serial.print(LEDDisplay);
-        Serial.print(", ");
-        msg="";
-      }
-      else {
-        msg = "";
-       Serial.read();
-        Serial.println("Invalid msg");
-        goto start;
-      }
-    }
-    else {
-      goto start;
-    }
+  Serial.println(msg);
+  if (msg.indexOf('#') >= 0) {
+      String temp;
+      temp = msg.substring(0, msg.indexOf(','));
+      Serial.println(temp);
+      msg.remove(0, msg.indexOf(',') + 1);
+      ch1 = temp.indexOf('#') < 0 ? temp.toInt() : -1;
+      temp = msg.substring(0, msg.indexOf(','));
+      Serial.println(temp);
+      msg.remove(0, msg.indexOf(',') + 1);
+      ch2 = temp.indexOf('#') < 0 ? temp.toInt() : -1;
+      temp = msg.substring(0, msg.indexOf(','));
+      Serial.println(temp);
+      msg.remove(0, msg.indexOf(',') + 1);
+      ch3 = temp.indexOf('#') < 0 ? temp.toInt() : -1;
+      temp = msg.substring(0, msg.indexOf('#'));
+      Serial.println(temp);
+      msg.remove(0, msg.indexOf('#') + 1);
+      sum = temp.indexOf('#') < 0 ? temp.toInt() : -1;
   }
+
+
+  if (ch1 + ch2 + ch3 == sum && sum < 3069) {
+    steering = map(ch1, 0, 255, 0, 1023);
+    throttle = map(ch2, 0, 255, 0, 1023);
+    brakes = map(ch3, 0, 255, 0, 1023);
+    Serial.print("steering: ");
+    Serial.print(steering);
+    Serial.print(", ");
+    Serial.print("throttle: ");
+    Serial.print(throttle);
+    Serial.print(",");
+    Serial.print("brakes: ");
+    Serial.print(brakes);
+    msg = "";
+  }
+  else {
+    msg = "";
+    Serial.read();
+    Serial.println("Invalid msg");
+    goto start;
+  }
+
+
 #endif
 
 
-    Serial.println("Start of control code");
-    //Direction control
-    if (throttle > (512 + deadzone_throttle)) {
-      digitalWrite(Main_relay, HIGH);
-      digitalWrite(Back_relay, LOW); // Turns ON Relays front
-      digitalWrite(Front_relay, HIGH); // Turns OFF Relay back
-    }
-    else if (throttle < (512 - deadzone_throttle)) {
-      digitalWrite(Main_relay, HIGH);
-      digitalWrite(Front_relay, LOW); // Turns OFF Relays front
-      digitalWrite(Back_relay, HIGH); // Turns ON Relay back
-    }
-    else {
-      digitalWrite(Main_relay, LOW);
-      digitalWrite(Front_relay, LOW);
-      digitalWrite(Back_relay, LOW);
-    }
+Serial.println("Start of control code");
+//Direction control
+if (throttle > (512 + deadzone_throttle)) {
+  digitalWrite(Main_relay, HIGH);
+  digitalWrite(Back_relay, LOW); // Turns ON Relays front
+  digitalWrite(Front_relay, HIGH); // Turns OFF Relay back
+}
+else if (throttle < (512 - deadzone_throttle)) {
+  digitalWrite(Main_relay, HIGH);
+  digitalWrite(Front_relay, LOW); // Turns OFF Relays front
+  digitalWrite(Back_relay, HIGH); // Turns ON Relay back
+}
+else {
+  digitalWrite(Main_relay, LOW);
+  digitalWrite(Front_relay, LOW);
+  digitalWrite(Back_relay, LOW);
+}
 
-    //Speed control
-    rval = abs(throttle - 512);
-    rval = map(rval, 0, 512, 0, 256); //5K pot used
-    servo1.write(degreesToUS(rval));
+//Speed control
+rval = abs(throttle - 512);
+rval = map(rval, 0, 512, 0, 256); //5K pot used
+servo1.write(degreesToUS(rval));
 
-    //Steering control
-    int pot_raw = analogRead(pot_pin);
-    pot_raw = map(pot_raw, 0, 680, 0, 1023);
+//Steering control
+int pot_raw = analogRead(pot_pin);
+pot_raw = map(pot_raw, 0, 680, 0, 1023);
 
-    //PID
-    input_1 = pot_raw;
-    setpoint_1 = steering;
-    steeringPID.Compute();
+//PID
+input_1 = pot_raw;
+setpoint_1 = steering;
+steeringPID.Compute();
 
-    output_1 > 0 ? digitalWrite(ster_step_dir_pin, HIGH) : digitalWrite(ster_step_dir_pin, LOW);
+output_1 > 0 ? digitalWrite(ster_step_dir_pin, HIGH) : digitalWrite(ster_step_dir_pin, LOW);
 
-    long period = steering_range - abs(output_1);
-    period = (period < 320) ? 320 : period;
-    period = abs(period);
-    //set period
-    Timer1.detachInterrupt();
-    if (abs(setpoint_1 - pot_raw) > deadzone_steering) {
-      Timer1.initialize(period);
-      Timer1.attachInterrupt(callback);
-    }
+long period = steering_range - abs(output_1);
+period = (period < 320) ? 320 : period;
+period = abs(period);
+//set period
+Timer1.detachInterrupt();
+if (abs(setpoint_1 - pot_raw) > deadzone_steering) {
+  Timer1.initialize(period);
+  Timer1.attachInterrupt(callback);
+}
 
-    //Brake control
-    //Mapping need to be done;
-    brakes - brake_curr > 0 ? digitalWrite(brak_step_dir_pin, HIGH) : digitalWrite(brak_step_dir_pin, LOW);
-    for (int i = 0; i < abs(ch3 - brake_curr); i++) {
-      digitalWrite(brak_step_puls_pin, HIGH);
-      delayMicroseconds(300);
-      digitalWrite(brak_step_puls_pin, LOW);
-      delayMicroseconds(100);
-    }
-    EEPROM.write(addr, brake_curr);
+//Brake control
+//Mapping need to be done;
+brakes - brake_curr > 0 ? digitalWrite(brak_step_dir_pin, HIGH) : digitalWrite(brak_step_dir_pin, LOW);
+for (int i = 0; i < abs(ch3 - brake_curr); i++) {
+  digitalWrite(brak_step_puls_pin, HIGH);
+  delayMicroseconds(300);
+  digitalWrite(brak_step_puls_pin, LOW);
+  delayMicroseconds(100);
+}
+EEPROM.write(addr, brake_curr);
 
-    //Print data for debugging and testing
-    Serial.print("Set point: ");
-    Serial.print(setpoint_1);
-    Serial.print(", ");
-    Serial.print("Input: ");
-    Serial.print(pot_raw);
-    Serial.print(", ");
-    Serial.print("Output: ");
-    Serial.print(output_1);
-    Serial.print(", ");
-    Serial.print("Period: ");
-    Serial.print(period);
-    Serial.print(", ");
-    Serial.print("rval: ");
-    Serial.print(rval);
-    Serial.print(",");
-    Serial.println(brake_curr);
-    msg = "";
-    delay(1);
+//Print data for debugging and testing
+Serial.print("Set point: ");
+Serial.print(setpoint_1);
+Serial.print(", ");
+Serial.print("Input: ");
+Serial.print(pot_raw);
+Serial.print(", ");
+Serial.print("Output: ");
+Serial.print(output_1);
+Serial.print(", ");
+Serial.print("Period: ");
+Serial.print(period);
+Serial.print(", ");
+Serial.print("rval: ");
+Serial.print(rval);
+Serial.print(",");
+Serial.println(brake_curr);
+msg = "";
+delay(1000);
+}
+
+void callback()
+{
+  digitalWrite(ster_step_puls_pin, digitalRead(ster_step_puls_pin) ^ 1);
+}
+
+int CharToInt(char temp) {
+  if (temp <= '9') {
+    return temp - '0';
   }
-
-  void callback()
-  {
-    digitalWrite(ster_step_puls_pin, digitalRead(ster_step_puls_pin) ^ 1);
+  else {
+    return (temp - 0x41) + 10;
   }
-
-  int CharToInt(char temp) {
-    if (temp <= '9') {
-      return temp - '0';
-    }
-    else {
-      return (temp - 0x41) + 10;
-    }
-  }
+}
 
